@@ -1,20 +1,20 @@
 #!/bin/bash
 
-# Claude認証情報設定スクリプト - Universal Wrapper
-# 自動OS判定機能付き
+# Claude Authentication Setup Script - Universal Wrapper
+# Auto-detects OS and executes appropriate platform-specific script
 
 set -e
 
-echo "🔍 OS環境を判定中..."
+echo "🔍 Detecting OS environment..."
 
-# OS判定関数
+# OS detection function
 detect_os() {
     case "$(uname -s)" in
         Darwin*)
             echo "macOS"
             ;;
         Linux*)
-            # WSL判定
+            # WSL detection
             if grep -qi microsoft /proc/version 2>/dev/null || grep -qi wsl /proc/version 2>/dev/null; then
                 echo "WSL"
             else
@@ -30,23 +30,23 @@ detect_os() {
     esac
 }
 
-# シンボリックリンクを解決してスクリプトの実際の場所を取得
+# Resolve symbolic links to find the actual script location
 SOURCE="${BASH_SOURCE[0]}"
-while [ -h "$SOURCE" ]; do # シンボリックリンクの場合
+while [ -h "$SOURCE" ]; do # Handle symbolic links
     DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
     SOURCE="$(readlink "$SOURCE")"
-    [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE" # 相対パスの場合は絶対パスに変換
+    [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE" # Convert relative path to absolute
 done
 SCRIPT_DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
 
-# バックアップ方法1: BASH_SOURCEが使えない場合
+# Fallback method 1: Use BASH_SOURCE if available
 if [[ -z "$SCRIPT_DIR" ]]; then
     SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd -P)"
 fi
 
-# バックアップ方法2: 実行可能ファイルのパスから推測
+# Fallback method 2: Try to detect from executable path
 if [[ -z "$SCRIPT_DIR" ]] || [[ ! -d "$SCRIPT_DIR" ]]; then
-    # which コマンドでスクリプトの場所を特定
+    # Use which command to locate script
     WHICH_RESULT="$(which set-claude-secret 2>/dev/null || echo "")"
     if [[ -n "$WHICH_RESULT" ]]; then
         SCRIPT_DIR="$(cd "$(dirname "$WHICH_RESULT")" && pwd -P)"
@@ -55,79 +55,79 @@ if [[ -z "$SCRIPT_DIR" ]] || [[ ! -d "$SCRIPT_DIR" ]]; then
     fi
 fi
 
-# デバッグモード（環境変数 DEBUG=1 で有効化）
+# Debug mode (enabled with DEBUG=1 environment variable)
 if [[ "${DEBUG:-0}" == "1" ]]; then
-    echo "📂 スクリプトディレクトリ: $SCRIPT_DIR"
-    echo "📋 利用可能なファイル:"
-    ls -la "$SCRIPT_DIR"/*.sh 2>/dev/null || echo "  ⚠️  .shファイルが見つかりません"
+    echo "📂 Script directory: $SCRIPT_DIR"
+    echo "📋 Available files:"
+    ls -la "$SCRIPT_DIR"/*.sh 2>/dev/null || echo "  ⚠️  No .sh files found"
 fi
 
-# OS判定実行
+# Execute OS detection
 OS_TYPE=$(detect_os)
-echo "🖥️  検出されたOS: $OS_TYPE"
+echo "🖥️  Detected OS: $OS_TYPE"
 
-# 対応するスクリプトを実行
+# Execute appropriate script based on detected OS
 case "$OS_TYPE" in
     "macOS")
-        echo "🍎 Mac用スクリプトを実行します..."
+        echo "🍎 Executing Mac script..."
         MAC_SCRIPT="$SCRIPT_DIR/set-claude-secret-mac.sh"
         if [[ "${DEBUG:-0}" == "1" ]]; then
-            echo "🔍 探しているファイル: $MAC_SCRIPT"
+            echo "🔍 Looking for file: $MAC_SCRIPT"
         fi
         if [[ -f "$MAC_SCRIPT" ]]; then
             exec "$MAC_SCRIPT" "$@"
         else
-            echo "❌ Mac用スクリプト (set-claude-secret-mac.sh) が見つかりません"
-            echo "📂 現在のディレクトリ: $(pwd)"
-            echo "📂 スクリプトディレクトリ: $SCRIPT_DIR"
-            echo "💡 DEBUG=1 でより詳細な情報を表示できます"
+            echo "❌ Mac script (set-claude-secret-mac.sh) not found"
+            echo "📂 Current directory: $(pwd)"
+            echo "📂 Script directory: $SCRIPT_DIR"
+            echo "💡 Use DEBUG=1 for more detailed information"
             exit 1
         fi
         ;;
     "WSL")
-        echo "🐧 WSL環境を検出しました。Windows用スクリプトを実行します..."
+        echo "🐧 WSL environment detected. Executing Windows script..."
         if [[ -f "$SCRIPT_DIR/set-claude-secret-windows.sh" ]]; then
             exec "$SCRIPT_DIR/set-claude-secret-windows.sh" "$@"
         else
-            echo "❌ Windows用スクリプト (set-claude-secret-windows.sh) が見つかりません"
+            echo "❌ Windows script (set-claude-secret-windows.sh) not found"
             exit 1
         fi
         ;;
     "Linux")
-        echo "🐧 Linux環境を検出しました"
-        echo "現在、純粋なLinux環境用のスクリプトは提供されていません。"
+        echo "🐧 Linux environment detected"
+        echo "Currently, no dedicated Linux script is available."
         echo ""
-        echo "🔧 以下のオプションから選択してください："
-        echo "1. Windows版スクリプトを試す (WSLと同様の環境の場合)"
-        echo "2. Mac版スクリプトをベースに手動設定"
+        echo "🔧 Please choose from the following options:"
+        echo "1. Try Windows script (if WSL-like environment)"
+        echo "2. Manual setup based on Mac script"
         echo ""
         if [[ -f "$SCRIPT_DIR/set-claude-secret-windows.sh" ]]; then
-            echo "Windows版スクリプトを試しますか？ (y/N)"
+            echo "Try Windows script? (y/N)"
             read -r response
             if [[ "$response" =~ ^[Yy]$ ]]; then
-                echo "🪟 Windows版スクリプトを実行します..."
+                echo "🪟 Executing Windows script..."
                 exec "$SCRIPT_DIR/set-claude-secret-windows.sh" "$@"
             fi
         fi
-        echo "手動設定が必要です。詳細はREADMEを参照してください。"
+        echo "Manual setup required. Please refer to README for details."
         exit 1
         ;;
     "Windows")
-        echo "🪟 Windows用スクリプトを実行します..."
+        echo "🪟 Executing Windows script..."
         if [[ -f "$SCRIPT_DIR/set-claude-secret-windows.sh" ]]; then
             exec "$SCRIPT_DIR/set-claude-secret-windows.sh" "$@"
         else
-            echo "❌ Windows用スクリプト (set-claude-secret-windows.sh) が見つかりません"
+            echo "❌ Windows script (set-claude-secret-windows.sh) not found"
             exit 1
         fi
         ;;
     *)
-        echo "❌ サポートされていないOS環境です: $OS_TYPE"
+        echo "❌ Unsupported OS environment: $OS_TYPE"
         echo ""
-        echo "🔧 手動での設定が必要です："
-        echo "1. Claude Codeで認証"
-        echo "2. credentials.jsonを手動作成"
-        echo "3. GitHub Secretsを手動設定"
+        echo "🔧 Manual setup required:"
+        echo "1. Authenticate with Claude Code"
+        echo "2. Manually create credentials.json"
+        echo "3. Manually set GitHub Secrets"
         exit 1
         ;;
 esac

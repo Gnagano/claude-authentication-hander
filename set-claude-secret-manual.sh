@@ -1,50 +1,29 @@
 #!/bin/bash
 
-# Claude Authentication Setup Script for Windows/WSL
-# Reads Claude credentials from ~/.claude/.credentials.json and sets GitHub secrets
-
+# Read Claude credentials from ~/.claude/.credentials.json
 CREDENTIALS_FILE="$HOME/.claude/.credentials.json"
 
 # Check if jq is installed
 if ! command -v jq &> /dev/null; then
     echo "Error: jq is not installed. Please install it first:"
     echo "  Ubuntu/Debian: sudo apt-get install jq"
-    echo "  Windows/WSL: Install via package manager"
     echo "  macOS: brew install jq"
     exit 1
 fi
 
-# Check if claude command is available
-if ! command -v claude &> /dev/null; then
-    echo "Error: claude command not found. Please install Claude CLI first."
-    exit 1
-fi
-
-# Always run claude first to ensure fresh credentials
-echo "Opening Claude to ensure credentials are up to date..."
-
-# Run claude in background and capture its PID
-claude &
-CLAUDE_PID=$!
-
-# Wait for Claude to fully start and generate credentials
-echo "Waiting for Claude to initialize and generate credentials..."
-sleep 15
-
-# Send interrupt signal to close Claude
-kill -INT $CLAUDE_PID 2>/dev/null || true
-
-# Wait a bit more for cleanup
-sleep 5
-
 # Check if credentials file exists
 if [ ! -f "$CREDENTIALS_FILE" ]; then
     echo "Error: Credentials file not found at $CREDENTIALS_FILE"
-    echo "Please run 'claude' manually and ensure you're logged in."
+    echo ""
+    echo "Please do one of the following:"
+    echo "1. Run 'claude' manually in a separate terminal to generate credentials"
+    echo "2. Ensure you're logged into Claude"
+    echo ""
+    echo "Then run this script again."
     exit 1
 fi
 
-echo "Claude credentials are ready!"
+echo "Found Claude credentials at $CREDENTIALS_FILE"
 
 # Extract tokens using jq (JSON parser)
 ACCESS_TOKEN=$(jq -r '.claudeAiOauth.accessToken' "$CREDENTIALS_FILE")
@@ -59,7 +38,7 @@ fi
 
 echo "Successfully loaded credentials from $CREDENTIALS_FILE"
 
-# Repository list
+# List of repositories
 REPOS=(
     "code-base-ts-backend-curiox"
     "anthropic-api-backend"
