@@ -30,17 +30,29 @@ detect_os() {
     esac
 }
 
-# 現在のディレクトリを取得（より堅牢な方法）
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# シンボリックリンクを解決してスクリプトの実際の場所を取得
+SOURCE="${BASH_SOURCE[0]}"
+while [ -h "$SOURCE" ]; do # シンボリックリンクの場合
+    DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+    SOURCE="$(readlink "$SOURCE")"
+    [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE" # 相対パスの場合は絶対パスに変換
+done
+SCRIPT_DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
 
-# もしBASH_SOURCEが使えない場合の代替案
+# バックアップ方法1: BASH_SOURCEが使えない場合
 if [[ -z "$SCRIPT_DIR" ]]; then
-    SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+    SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd -P)"
 fi
 
-# さらなる代替案（現在の作業ディレクトリを使用）
+# バックアップ方法2: 実行可能ファイルのパスから推測
 if [[ -z "$SCRIPT_DIR" ]] || [[ ! -d "$SCRIPT_DIR" ]]; then
-    SCRIPT_DIR="$(pwd)"
+    # which コマンドでスクリプトの場所を特定
+    WHICH_RESULT="$(which set-claude-secret 2>/dev/null || echo "")"
+    if [[ -n "$WHICH_RESULT" ]]; then
+        SCRIPT_DIR="$(cd "$(dirname "$WHICH_RESULT")" && pwd -P)"
+    else
+        SCRIPT_DIR="$(pwd)"
+    fi
 fi
 
 # デバッグモード（環境変数 DEBUG=1 で有効化）
