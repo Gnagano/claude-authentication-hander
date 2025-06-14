@@ -30,8 +30,25 @@ detect_os() {
     esac
 }
 
-# 現在のディレクトリを取得
+# 現在のディレクトリを取得（より堅牢な方法）
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# もしBASH_SOURCEが使えない場合の代替案
+if [[ -z "$SCRIPT_DIR" ]]; then
+    SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+fi
+
+# さらなる代替案（現在の作業ディレクトリを使用）
+if [[ -z "$SCRIPT_DIR" ]] || [[ ! -d "$SCRIPT_DIR" ]]; then
+    SCRIPT_DIR="$(pwd)"
+fi
+
+# デバッグモード（環境変数 DEBUG=1 で有効化）
+if [[ "${DEBUG:-0}" == "1" ]]; then
+    echo "📂 スクリプトディレクトリ: $SCRIPT_DIR"
+    echo "📋 利用可能なファイル:"
+    ls -la "$SCRIPT_DIR"/*.sh 2>/dev/null || echo "  ⚠️  .shファイルが見つかりません"
+fi
 
 # OS判定実行
 OS_TYPE=$(detect_os)
@@ -41,10 +58,17 @@ echo "🖥️  検出されたOS: $OS_TYPE"
 case "$OS_TYPE" in
     "macOS")
         echo "🍎 Mac用スクリプトを実行します..."
-        if [[ -f "$SCRIPT_DIR/set-claude-secret-mac.sh" ]]; then
-            exec "$SCRIPT_DIR/set-claude-secret-mac.sh" "$@"
+        MAC_SCRIPT="$SCRIPT_DIR/set-claude-secret-mac.sh"
+        if [[ "${DEBUG:-0}" == "1" ]]; then
+            echo "🔍 探しているファイル: $MAC_SCRIPT"
+        fi
+        if [[ -f "$MAC_SCRIPT" ]]; then
+            exec "$MAC_SCRIPT" "$@"
         else
             echo "❌ Mac用スクリプト (set-claude-secret-mac.sh) が見つかりません"
+            echo "📂 現在のディレクトリ: $(pwd)"
+            echo "📂 スクリプトディレクトリ: $SCRIPT_DIR"
+            echo "💡 DEBUG=1 でより詳細な情報を表示できます"
             exit 1
         fi
         ;;
